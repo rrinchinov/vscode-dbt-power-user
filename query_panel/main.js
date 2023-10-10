@@ -32,6 +32,7 @@ const app = createApp({
       windowHeight: DEFAULT_HEIGHT,
       scale: 1,
       clipboardText: "",
+      summary: undefined,
     };
   },
   methods: {
@@ -134,6 +135,15 @@ const app = createApp({
         this.scale = data.scale;
       }
     },
+    updateSummary(data) {
+      if (data.summary) {
+        this.summary = data.summary;
+        console.log(this.summary);
+      }
+    },
+    focusSummaryTab() {
+      document.querySelector("#panel-manager").activeid = "tab-4";
+    },
     updateDispatchedCode(raw_stmt, compiled_stmt) {
       this.rawCode = raw_stmt;
 
@@ -175,6 +185,9 @@ const app = createApp({
       clearTimeout(this.timer);
     },
     setTableHeight() {
+      if (!this.table) {
+        return;
+      }
       this.table.setHeight(this.windowHeight);
     },
     handleResize(event) {
@@ -203,6 +216,9 @@ const app = createApp({
     },
     hasData() {
       return this.count > 0;
+    },
+    hasSummary() {
+      return !!this.summary;
     },
     hasError() {
       return this.error?.data;
@@ -283,6 +299,12 @@ const app = createApp({
           break;
         case "resetState":
           this.clearData();
+          break;
+        case "renderSummary":
+          this.updateSummary(event.data);
+          this.loading = false;
+          this.endTimer();
+          this.focusSummaryTab();
           break;
       }
     });

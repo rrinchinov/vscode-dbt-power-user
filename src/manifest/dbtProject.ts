@@ -761,6 +761,16 @@ select * from renamed
     }
   }
 
+  async getSummary(query: string) {
+    // TODO - telemetry and stuff goes here
+    const compiledSql = await this.compileQuery(query);
+    if (compiledSql === undefined) {
+      // TODO - error handling
+      return;
+    }
+    this.queryResultPanel.getSummary(compiledSql, this.adapterType);
+  }
+
   async executeSQL(query: string) {
     await this.blockUntilPythonBridgeIsInitalized();
     if (!this.pythonBridgeInitialized) {

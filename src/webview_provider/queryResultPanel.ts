@@ -20,6 +20,7 @@ import { ExecuteSQLResult } from "../manifest/dbtProject";
 import { DBTProjectContainer } from "../manifest/dbtProjectContainer";
 import { extendErrorWithSupportLinks, provideSingleton } from "../utils";
 import { TelemetryService } from "../telemetry";
+import { AltimateRequest } from "../altimate";
 
 interface JsonObj {
   [key: string]: string | number | undefined;
@@ -31,6 +32,7 @@ enum OutboundCommand {
   RenderError = "renderError",
   InjectConfig = "injectConfig",
   ResetState = "resetState",
+  RenderSummary = "renderSummary",
 }
 
 interface RenderQuery {
@@ -38,6 +40,11 @@ interface RenderQuery {
   rows: JsonObj[];
   raw_sql: string;
   compiled_sql: string;
+}
+
+interface RenderSummary {
+  compiled_sql: string;
+  summary: string;
 }
 
 interface RenderError {
@@ -54,6 +61,7 @@ enum InboundCommand {
   Info = "info",
   Error = "error",
   UpdateConfig = "updateConfig",
+  GetSummary = "getSummary",
 }
 
 interface RecInfo {
@@ -79,6 +87,7 @@ export class QueryResultPanel implements WebviewViewProvider {
   public constructor(
     private dbtProjectContainer: DBTProjectContainer,
     private telemetry: TelemetryService,
+    private altimate: AltimateRequest,
   ) {
     window.onDidChangeActiveColorTheme(
       (e) => {
@@ -190,6 +199,18 @@ export class QueryResultPanel implements WebviewViewProvider {
     }
   }
 
+  private async transmitSummary(compiled_sql: string, summary: string) {
+    if (this._panel) {
+      await this._panel.webview.postMessage({
+        command: OutboundCommand.RenderSummary,
+        ...(<RenderSummary>{
+          compiled_sql: compiled_sql,
+          summary: summary,
+        }),
+      });
+    }
+  }
+
   /** Sends error result data to webview */
   private async transmitError(
     error: any,
@@ -256,6 +277,25 @@ export class QueryResultPanel implements WebviewViewProvider {
       columns = [...columns, { title: def, field: def }];
     });
     await this.transmitData(columns, rows, query, result.compiled_sql);
+  }
+
+  public async getSummary(query: string, adapter: string) {
+    //using id to focus on the webview is more reliable than using the view title
+    await commands.executeCommand("dbtPowerUser.PreviewResults.focus");
+    if (this._panel) {
+      this._panel.show(); // Show the view
+      this._panel.webview.postMessage({ command: "focus" }); // keyboard focus
+      this.transmitLoading();
+    }
+
+    // TODO - the magic happens here. call the altimate backend here
+    const response = await this.altimate.getQuerySummary(query, adapter);
+    console.log(response);
+    if (response === undefined) {
+      // TODO error handling
+      return;
+    }
+    await this.transmitSummary(query, response.explanation);
   }
 
   /** Runs a query transmitting appropriate notifications to webview */
